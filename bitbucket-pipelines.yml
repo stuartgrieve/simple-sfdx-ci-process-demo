@@ -1,0 +1,33 @@
+# Description: Simple sfdx Bitbucket Pipeline script to demonstrate a quick and easy CI approach
+# Author: Stuart Grieve
+
+# Docker image to be used
+image: salesforce/salesforcedx
+
+# Maximum minutes a step can execute before timing out
+options:
+  max-time: 30
+
+definitions:
+
+  scripts:
+    decryptCertificate: &decryptCertificate openssl enc -nosalt -aes-256-cbc -d -in ./server.key.enc -out ./server.key -base64 -K $DECRYPTION_KEY -iv $DECRYPTION_IV
+    authoriseOrg: &authoriseOrg sfdx force:auth:jwt:grant --clientid $SF_SECRET_KEY_FOR_CLIENT_ID --username $SF_USERNAME --jwtkeyfile ./server.key --instanceurl https://login.salesforce.com
+    deploy: &deploy sfdx force:source:deploy --manifest force-app/main/default/package.xml --loglevel error --targetusername $SF_USERNAME
+    logout: &logout sfdx force:auth:logout -p --targetusername $SF_USERNAME
+
+pipelines:
+  
+  branches:
+    
+    master:
+      - step:
+          name: Deploying to Org
+          script:
+            # Authorising environment
+            - *decryptCertificate
+            - *authoriseOrg
+            # Deploy and run tests
+            - *deploy
+            - *logout
+
